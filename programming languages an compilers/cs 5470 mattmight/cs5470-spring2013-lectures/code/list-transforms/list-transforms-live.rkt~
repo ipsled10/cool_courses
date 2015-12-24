@@ -1,0 +1,196 @@
+#lang racket
+
+;; add1
+
+(define (add1 lst)
+  (if (null? lst)
+      '()
+      (cons (+ 1 (car lst))
+            (add1 (cdr lst)))))
+
+;(add1 '(1 2 3 4))
+
+
+;; map/test
+(define (map/test f lst)
+  (if (null? lst)
+      '()
+      (cons (f (car lst))
+            (map/test f (cdr lst)))))
+
+
+;(map/test (λ (x) (+ x 1)) '( 1 2 3 4 ))
+
+
+;; map/hoist
+(define (map/hoist f lst)
+  
+  (define (m l)
+    (if (null? l)
+        '()
+        (cons (f (car l))
+              (m (cdr l)))))
+  
+  (m lst))
+
+
+;; map/match
+(define (map/match f lst)
+  (match lst
+    ['()    '()]
+    [(cons a b)
+     (cons (f a) (map/match f b))]))
+  
+
+;; filter/test
+(define (filter/test p? lst)
+  (if (null? lst)
+      '()
+      (if (p? (car lst))
+          (cons (car lst)
+                (filter/test p? (cdr lst)))
+          (filter/test p? (cdr lst)))))
+
+
+;(filter/test even? '(1 2 3 4 5 6))
+
+;; filter/match
+
+(define (filter/match p? lst)
+  (match lst
+    ['()   '()]
+    [(cons (and hd (? p?)) tl)
+     ;=>
+     (cons hd (filter/match p? tl))]
+    [else 
+     (filter/match p? (cdr lst))]
+    #;[(cons _ tl)
+     (filter/match p? tl)]))
+
+
+;; abstract-map
+(define (abstract-map kons nil f lst)
+  (if (null? lst)
+      nil
+      (kons (f (car lst))
+            (abstract-map kons nil f (cdr lst)))))
+
+
+;(abstract-map + 0 (λ (x) (+ x 1)) '(1 2 3 4))
+
+
+;; foldr
+
+(define (foldr/test kons nil lst)
+  (if (null? lst)
+      nil
+      (kons (car lst)
+            (foldr/test kons nil (cdr lst)))))
+
+
+;(foldr/test cons '() '(1 2 3 4))
+
+;(foldr/test + 0 '(1 2 3 4))
+
+
+
+
+;; foldl
+
+(define (foldl/test kons nil lst)
+  (if (null? lst)
+      nil
+      (foldl/test kons (kons (car lst) nil) (cdr lst))))
+
+;(foldl/test cons '() '(1 2 3 4))
+
+
+;; reduce
+(define (reduce op lst)
+  (match lst
+    ['()      (error "No initial element.")]
+    [(list x) x]
+    [(cons hd tl) 
+     (op hd (reduce op tl))]))
+  
+
+;(reduce + '(1 2 3 4))
+
+
+;; foldl/foldr/reduce is the formal version of ... or "big ops"
+     
+
+;; zip
+
+(define (zip lst1 lst2)
+  (match* (lst1 lst2)
+    [{'() '()}    '()]
+    
+    [{(cons hd1 tl1) (cons hd2 tl2)}
+     (cons (list hd1 hd2)
+           (zip tl1 tl2))]))
+
+   
+;(zip '(1 2 3 4) '(4 5 6 7))
+
+
+
+;; zip/map
+;(map (λ (a b) (list a b)) '(1 2 3 4) '(4 5 6 7))
+
+
+;; unzip/values
+
+(define (unzip/values lst)
+  (match lst
+    ['()   (values '() '())]
+    [(cons (list a b) tl)
+     ; =>
+     (define-values (as bs) (unzip/values tl))
+     (values (cons a as)
+             (cons b bs))]))
+           
+
+;(unzip/values '((1 2) (3 4) (5 6)))
+ 
+
+;; unzip/callback
+(define (unzip/callback lst k)
+  (match lst
+    ['()     (k '() '())]
+    [(cons (list a b) tl)
+     (unzip/callback tl (λ (as bs)
+                          (k (cons a as)
+                             (cons b bs))))]))
+
+
+;(unzip/callback '((1 2) (3 4) (5 6)) list)
+
+
+;; partition/values
+(define (partition/values p? lst)
+  (match lst
+    ['()           (values '() '())]
+    [(cons hd tl)
+     ;=>
+     
+     (define-values (ins outs) (partition/values p? tl))
+     
+     (if (p? hd)
+         (values (cons hd ins) outs)
+         (values ins (cons hd outs)))]))
+
+;(partition/values number? '(1 2 a b c 3 4 d e 5 6))
+
+
+;; partition/callback
+(define (partition/callback p? lst return)
+  (match lst
+    ['()   (return '() '())]
+    [(cons hd tl)
+     (partition/callback p? tl (λ (ins outs)
+                               (if (p? hd)
+                                   (return (cons hd ins) outs)
+                                   (return ins (cons hd outs)))))]))
+
+(partition/callback number? '(1 2 a b c 3 4 d e 5 6) list)
